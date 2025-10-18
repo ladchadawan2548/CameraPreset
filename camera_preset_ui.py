@@ -9,8 +9,6 @@ import maya.cmds as cmds
 import maya.OpenMayaUI as omui
 
 ROOT_RESOURCE_DIR = 'C:/Users/ladch/OneDrive/maya/2024/scripts/CameraPreset/picture'
-PRESET_FILE = os.path.join(ROOT_RESOURCE_DIR, "user_presets.json")
-
 
 def get_selected_camera_shape():
     sel = cmds.ls(selection=True)
