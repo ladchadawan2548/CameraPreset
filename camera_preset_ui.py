@@ -9,81 +9,69 @@ import maya.cmds as cmds
 import maya.OpenMayaUI as omui
 
 ROOT_RESOURCE_DIR = 'C:/Users/ladch/OneDrive/maya/2024/scripts/CameraPreset/picture'
+PRESET_FILE = os.path.join(ROOT_RESOURCE_DIR, "user_presets.json")
+
+
+def get_selected_camera_shape():
+    sel = cmds.ls(selection=True)
+    if not sel:
+        return None
+    node = sel[0]
+    if cmds.objectType(node) == "camera":
+        return node
+    shapes = cmds.listRelatives(node, shapes=True) or []
+    for s in shapes:
+        if cmds.objectType(s) == "camera":
+            return s
+    return None
+
 
 class CameraPresetDialog(QtWidgets.QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
 
-        self.setWindowTitle('❄️ NCT WISH 💚')
-        self.resize(450,350)
-
-        self.mainLayout = QtWidgets.QVBoxLayout()
-        self.setLayout(self.mainLayout)
+        self.setWindowTitle('🎬 Camera Preset Tool 🎥')
+        self.resize(450, 450)
+        self.mainLayout = QtWidgets.QVBoxLayout(self)
         self.setStyleSheet('''
-            QDialog {
-                background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0#94BBE9 stop:0.5 #F9F4A2, stop:1 #AEEECD);
+            QDialog { background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                stop:0 #94BBE9, stop:0.5 #F9F4A2, stop:1 #AEEECD); }
+            QLineEdit, QComboBox, QPushButton, QSlider {
+                border-radius: 8px; font-size: 14px; font-family: DIN Medium;
             }
-            QLineEdit, QComboBox, QPushButton {
-                border-radius: 8px;
-                font-size: 14px;
-                font-family: DIN Medium;
-            }
-        '''
-        )
+        ''')
+
 
         self.headerLabel = QtWidgets.QLabel('🎬 CAMERA PRESET TOOL 🎥')
         self.headerLabel.setAlignment(QtCore.Qt.AlignCenter)
-        self.headerLabel.setStyleSheet('font-size: 16px; font-weight: bold; color: #004f6e;')
+        self.headerLabel.setStyleSheet('font-size:16px; font-weight:bold; color:#004f6e;')
         self.mainLayout.addWidget(self.headerLabel)
 
-        self.imageLabel = QtWidgets.QLabel()
-        self.imagePixmap = QtGui.QPixmap(f"{ROOT_RESOURCE_DIR}/05.png")
-        scaled_pixmap = self.imagePixmap.scaled(
-            QtCore.QSize(300,300),
-            QtCore.Qt.KeepAspectRatio,
-            QtCore.Qt.SmoothTransformation
-        )
 
-        self.imageLabel.setPixmap(scaled_pixmap)
+        self.imageLabel = QtWidgets.QLabel()
+        pix = QtGui.QPixmap(f"{ROOT_RESOURCE_DIR}/05.png")
+        if not pix or pix.isNull():
+            pix = QtGui.QPixmap(300, 200)
+            pix.fill(QtGui.QColor("transparent"))
+        scaled_pix = pix.scaled(QtCore.QSize(300, 300), QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation)
+        self.imageLabel.setPixmap(scaled_pix)
         self.imageLabel.setAlignment(QtCore.Qt.AlignCenter)
         self.mainLayout.addWidget(self.imageLabel)
 
 
         self.presetLayout = QtWidgets.QHBoxLayout()
-        self.mainLayout.addLayout(self.presetLayout)
         self.presetDropdown = QtWidgets.QComboBox()
         self.default_presets = {
-            "Cinematic 35mm": ("35", "2.35:1", "1920 x 817"),
-            "Medium Shot 50mm": ("50", "16:9", "1920 x 1080"),
-            "Close-up 85mm": ("85", "16:9", "1920 x 1080"),
-            "Product Showcase": ("70", "1:1", "1080 x 1080"),
-            "Turntable Preview": ("35", "16:9", "1920 x 1080"),
-            "Social Portrait": ("35", "9:16", "1080 x 1920"),
-            "Social Square": ("50", "1:1", "1080 x 1080"),
-            "Isometric": ("Orthographic", "N/A", "N/A", {"rotateX": 35.264, "rotateY": 45, "rotateZ": 0, "orthoWidth": 50})
+            "Cinematic 35mm": 35,
+            "Medium Shot 50mm": 50,
+            "Close-up 85mm": 85,
+            "Product Showcase": 70,
+            "Turntable Preview": 35,
+            "Social Portrait": 35,
+            "Social Square": 50,
+            "Isometric": 35
         }
         self.presetDropdown.addItems(self.default_presets.keys())
-
-        self.apply_btn = QtWidgets.QPushButton("Apply")
-        self.apply_btn.setStyleSheet(
-            '''
-                QPushButton {
-                    background-color: #78D4F0;
-                    color: white;
-                    border-radius: 10px;
-                    font-size: 16px;
-                    font-family: DIN Medium;
-                    font-weight: Medium;
-                }
-                QPushButton:hover {
-                    background-color: #EDE887;
-                }
-                QPushButton:pressed {
-                    background-color: #D084FA;
-                }
-            '''
-        )
         self.save_btn = QtWidgets.QPushButton("Save Preset")
         self.save_btn.setStyleSheet(
             '''
@@ -102,7 +90,7 @@ class CameraPresetDialog(QtWidgets.QDialog):
                     background-color: #D084FA;
                 }
             '''
-        )       
+        ) 
         self.delete_btn = QtWidgets.QPushButton("Delete Preset")
         self.delete_btn.setStyleSheet(
             '''
@@ -122,73 +110,51 @@ class CameraPresetDialog(QtWidgets.QDialog):
                 }
             '''
         )
-
         self.presetLayout.addWidget(self.presetDropdown)
-        self.presetLayout.addWidget(self.apply_btn)
         self.presetLayout.addWidget(self.save_btn)
         self.presetLayout.addWidget(self.delete_btn)
+        self.mainLayout.addLayout(self.presetLayout)
 
-        self.focalLineEdit = QtWidgets.QLineEdit(" 35")
-        self.aspectDropdown = QtWidgets.QComboBox()
-        self.aspectDropdown.addItems(["16:9", " 1:1", " 9:16", " 2.35:1"])
-        self.resLineEdit = QtWidgets.QLineEdit(" 1920 x 1080")
 
-        form = QtWidgets.QFormLayout()
-        form.addRow("Focal Length (mm):", self.focalLineEdit)
-        form.addRow("Aspect Ratio:", self.aspectDropdown)
-        form.addRow("Resolution:", self.resLineEdit)
-        self.mainLayout.addLayout(form)
+        focalLayout = QtWidgets.QHBoxLayout()
+        lbl = QtWidgets.QLabel("Focal Length:")
+        lbl.setFixedWidth(100)
+        self.focalSlider = QtWidgets.QSlider(QtCore.Qt.Horizontal)
+        self.focalSlider.setRange(10, 300)
+        self.focalSlider.setValue(35)
+        self.focalSlider.setTickInterval(5)
+        self.focalSlider.setTickPosition(QtWidgets.QSlider.TicksBelow)
+        self.focalValueLabel = QtWidgets.QLabel("35 mm")
+        self.focalValueLabel.setFixedWidth(60)
+        focalLayout.addWidget(lbl)
+        focalLayout.addWidget(self.focalSlider)
+        focalLayout.addWidget(self.focalValueLabel)
+        self.mainLayout.addLayout(focalLayout)
 
-        self.createCamCheck = QtWidgets.QCheckBox("Create New Camera")
-        self.createCamCheck.setStyleSheet(
-            '''
-                QCheckBox {
-                    color: #87E89A;
-                    font-size: 16px;
-                    font-family: "DIN Medium";
-                    font-weight: Medium;
-                }
 
-                QCheckBox::indicator {
-                    width: 16px;
-                    height: 16px;
-                }
+        cropLayout = QtWidgets.QHBoxLayout()
+        cropLabel = QtWidgets.QLabel("Crop Setting:")
+        cropLabel.setFixedWidth(100)
+        self.cropCombo = QtWidgets.QComboBox()
+        self.cropCombo.addItems(["No Crop", "4:3", "16:9", "Cinematic 2.39"])
+        cropLayout.addWidget(cropLabel)
+        cropLayout.addWidget(self.cropCombo)
+        self.mainLayout.addLayout(cropLayout)
 
-                QCheckBox::indicator:checked {
-                    background-color: #9BD6FA;
-                    border: 2px solid #224599;
-                }
+ 
+        filmGateLayout = QtWidgets.QHBoxLayout()
+        filmGateLabel = QtWidgets.QLabel("Film Gate:")
+        filmGateLabel.setFixedWidth(100)
+        self.filmGateCombo = QtWidgets.QComboBox()
+        self.filmGateCombo.addItems(["None", "4:3", "16:9", "Cinematic 2.39"])
+        filmGateLayout.addWidget(filmGateLabel)
+        filmGateLayout.addWidget(self.filmGateCombo)
+        self.mainLayout.addLayout(filmGateLayout)
 
-                QCheckBox::indicator:unchecked {
-                    background-color: #8DCBFA;
-                    border: 2px solid #B0B0B0;
-                }
-            '''
-        )
-        self.resetButton = QtWidgets.QPushButton("🔄 Reset")
-        self.resetButton.setStyleSheet(
-            '''
-                QPushButton {
-                    background-color: #8DCBFA;
-                    color: white;
-                    border-radius: 10px;
-                    font-size: 16px;
-                    font-family: DIN Medium;
-                    font-weight: Medium;
-                }
-                QPushButton:hover {
-                    background-color: #EDE887;
-                }
-                QPushButton:pressed {
-                    background-color: #D084FA;
-                }
-            '''
-        )
-        optLayout = QtWidgets.QHBoxLayout()
-        optLayout.addWidget(self.createCamCheck)
-        optLayout.addWidget(self.resetButton)
-        self.mainLayout.addLayout(optLayout)
+        self.mainLayout.addStretch()
 
+
+        bottomLayout = QtWidgets.QHBoxLayout()
         self.applyButton = QtWidgets.QPushButton("🪼 APPLY PRESET ✨")
         self.applyButton.setStyleSheet(
             '''
@@ -208,7 +174,7 @@ class CameraPresetDialog(QtWidgets.QDialog):
                 }
             '''
         )
-        self.cancelButton = QtWidgets.QPushButton("⛔ CANCEL🥓")
+        self.cancelButton = QtWidgets.QPushButton("⛔ CANCEL 🥓")
         self.cancelButton.setStyleSheet(
             '''
                 QPushButton {
@@ -227,116 +193,160 @@ class CameraPresetDialog(QtWidgets.QDialog):
                 }
             '''
         )
-        btnLayout = QtWidgets.QHBoxLayout()
-        btnLayout.addWidget(self.applyButton)
-        btnLayout.addWidget(self.cancelButton)
-        self.mainLayout.addLayout(btnLayout)
+        bottomLayout.addWidget(self.applyButton)
+        bottomLayout.addWidget(self.cancelButton)
+        self.mainLayout.addLayout(bottomLayout)
 
-        # ---------- Connections ----------
-        self.applyButton.clicked.connect(self.applyPreset)
-        self.resetButton.clicked.connect(self.resetCamera)
+
+        self.focalSlider.valueChanged.connect(self.on_focal_changed)
+        self.cropCombo.currentIndexChanged.connect(self.on_crop_changed)
+        self.filmGateCombo.currentIndexChanged.connect(self.on_film_gate_changed)
+        self.presetDropdown.currentTextChanged.connect(self.on_preset_changed)
+        self.applyButton.clicked.connect(self.on_apply_clicked)
         self.cancelButton.clicked.connect(self.close)
-        self.presetDropdown.currentTextChanged.connect(self.updatePresetValues)
-        self.save_btn.clicked.connect(self.saveCustomPreset)
-        self.delete_btn.clicked.connect(self.deletePreset)
-        self.apply_btn.clicked.connect(self.applyPreset)
+        self.save_btn.clicked.connect(self.save_custom_preset)
+        self.delete_btn.clicked.connect(self.delete_preset)
 
-        self.loadUserPresets()
-        self.mainLayout.addStretch()
+        self.load_user_presets()
 
-    def loadUserPresets(self):
-        """โหลด preset ที่ผู้ใช้บันทึกไว้"""
-        if os.path.exists(PRESET_FILE):
-            with open(PRESET_FILE, 'r') as f:
-                user_presets = json.load(f)
-            for name in user_presets:
-                if name not in self.default_presets:
-                    self.presetDropdown.addItem(name)
+
+    def on_focal_changed(self, value):
+        self.focalValueLabel.setText(f"{value} mm")
+        cam_shape = get_selected_camera_shape()
+        if cam_shape:
+            try:
+                cmds.setAttr(f"{cam_shape}.focalLength", value)
+            except Exception as e:
+                cmds.warning(f"Cannot set focalLength: {e}")
+
+    def on_crop_changed(self, index):
+        mapping = {
+            0: None,                    # No Crop
+            1: (1600, 1200),            # 4:3
+            2: (1920, 1080),            # 16:9
+            3: (2048, 858),             # 2.39 cinematic
+        }
+        res = mapping.get(index)
+        if res:
+            w, h = res
+            try:
+                cmds.setAttr("defaultResolution.width", int(w))
+                cmds.setAttr("defaultResolution.height", int(h))
+            except Exception as e:
+                cmds.warning(f"Cannot set defaultResolution: {e}")
+
+    def on_film_gate_changed(self, index):
+        cam_shape = get_selected_camera_shape()
+        mapping = {
+            0: None,                 # None
+            1: (0.612, 0.459),       # 4:3
+            2: (0.825, 0.464),       # 16:9
+            3: (0.980, 0.410),       # 2.39 cinematic
+        }
+        filmback = mapping.get(index)
+        if cam_shape and filmback:
+            hAper, vAper = filmback
+            try:
+                cmds.setAttr(f"{cam_shape}.horizontalFilmAperture", hAper)
+                cmds.setAttr(f"{cam_shape}.verticalFilmAperture", vAper)
+                cmds.setAttr(f"{cam_shape}.displayGateMask", 1)
+                cmds.setAttr(f"{cam_shape}.gateMaskOpacity", 1)
+                cmds.setAttr(f"{cam_shape}.filmFit", 1)
+            except Exception as e:
+                cmds.warning(f"Cannot set film gate: {e}")
+        elif cam_shape:
+            cmds.setAttr(f"{cam_shape}.displayGateMask", 0)
+
+    def on_preset_changed(self, preset_name):
+        if preset_name in self.default_presets:
+            val = int(self.default_presets[preset_name])
+            self.focalSlider.setValue(val)
         else:
-            with open(PRESET_FILE, 'w') as f:
-                json.dump({}, f)
+            try:
+                if os.path.exists(PRESET_FILE):
+                    with open(PRESET_FILE, 'r') as f:
+                        user_presets = json.load(f)
+                    if preset_name in user_presets:
+                        self.focalSlider.setValue(int(user_presets[preset_name]))
+            except Exception:
+                pass
 
-    def updatePresetValues(self, presetName):
-        all_presets = dict(self.default_presets)
-        if os.path.exists(PRESET_FILE):
-            with open(PRESET_FILE, 'r') as f:
-                user_presets = json.load(f)
-                all_presets.update(user_presets)
-        if presetName in all_presets:
-            focal, aspect, res = all_presets[presetName]
-            self.focalLineEdit.setText(focal)
-            self.aspectDropdown.setCurrentText(aspect)
-            self.resLineEdit.setText(res)
-
-    def applyPreset(self):
-        focal = float(self.focalLineEdit.text())
-        createNew = self.createCamCheck.isChecked()
-
-        if createNew or not cmds.ls(selection=True, type='camera'):
-            cam = cmds.camera(name="PresetCamera")[0]
-        else:
-            cam = cmds.ls(selection=True, type='camera')[0]
-
-        cmds.setAttr(f"{cam}.focalLength", focal)
-        cmds.select(cam)
-        QtWidgets.QMessageBox.information(self, "✅ Success", f"Applied preset to: {cam}")
-
-    def resetCamera(self):
-        sel = cmds.ls(selection=True, type='camera')
-        if not sel:
-            QtWidgets.QMessageBox.warning(self, "⚠️ No Camera", "กรุณาเลือกกล้องก่อนรีเซ็ต")
+    def on_apply_clicked(self):
+        cam_shape = get_selected_camera_shape()
+        focal = self.focalSlider.value()
+        if not cam_shape:
+            QtWidgets.QMessageBox.warning(self, "No Camera", "Please select a camera to apply preset.")
             return
-        cam = sel[0]
-        cmds.setAttr(f"{cam}.focalLength", 35)
-        QtWidgets.QMessageBox.information(self, "🔄 Reset", f"Reset camera: {cam} to normal (35mm)")
+        try:
+            cmds.setAttr(f"{cam_shape}.focalLength", focal)
+            cam_transform = cmds.listRelatives(cam_shape, parent=True)[0]
+            cmds.select(cam_transform)
+            QtWidgets.QMessageBox.information(self, "✅ Applied", f"Applied {focal}mm to {cam_transform}")
+        except Exception as e:
+            cmds.warning(f"Apply failed: {e}")
 
-    def saveCustomPreset(self):
-        name, ok = QtWidgets.QInputDialog.getText(self, "Save Preset", "ชื่อพรีเซท:")
+
+    def save_custom_preset(self):
+        name, ok = QtWidgets.QInputDialog.getText(self, "Save Preset", "Preset name:")
         if not ok or not name.strip():
             return
-        data = {
-            name: (
-                self.focalLineEdit.text(),
-                self.aspectDropdown.currentText(),
-                self.resLineEdit.text()
-            )
-        }
+        value = self.focalSlider.value()
+        presets = {}
         if os.path.exists(PRESET_FILE):
-            with open(PRESET_FILE, 'r') as f:
-                presets = json.load(f)
-        else:
-            presets = {}
-        presets.update(data)
-        with open(PRESET_FILE, 'w') as f:
-            json.dump(presets, f, indent=4)
-
+            try:
+                with open(PRESET_FILE, 'r') as f:
+                    presets = json.load(f)
+            except Exception:
+                presets = {}
+        presets[name] = int(value)
+        try:
+            os.makedirs(os.path.dirname(PRESET_FILE), exist_ok=True)
+            with open(PRESET_FILE, 'w') as f:
+                json.dump(presets, f, indent=2)
+        except Exception as e:
+            cmds.warning(f"Cannot save preset: {e}")
+            return
         self.presetDropdown.addItem(name)
-        QtWidgets.QMessageBox.information(self, "✅ Saved", f"บันทึกพรีเซท '{name}' เรียบร้อยแล้ว")
+        QtWidgets.QMessageBox.information(self, "Saved", f"Preset '{name}' saved ({value}mm)")
 
-    def deletePreset(self):
-        presetName = self.presetDropdown.currentText()
-        if presetName in self.default_presets:
-            QtWidgets.QMessageBox.warning(self, "⚠️ Default Preset", "ไม่สามารถลบพรีเซทมาตรฐานได้")
+    def delete_preset(self):
+        name = self.presetDropdown.currentText()
+        if name in self.default_presets:
+            QtWidgets.QMessageBox.warning(self, "Cannot delete", "Default preset cannot be deleted")
             return
         if not os.path.exists(PRESET_FILE):
             return
-        with open(PRESET_FILE, 'r') as f:
-            presets = json.load(f)
-        if presetName in presets:
-            del presets[presetName]
-            with open(PRESET_FILE, 'w') as f:
-                json.dump(presets, f, indent=4)
-            self.presetDropdown.removeItem(self.presetDropdown.currentIndex())
-            QtWidgets.QMessageBox.information(self, "🗑️ Deleted", f"ลบ '{presetName}' เรียบร้อยแล้ว")
+        try:
+            with open(PRESET_FILE, 'r') as f:
+                presets = json.load(f)
+            if name in presets:
+                del presets[name]
+                with open(PRESET_FILE, 'w') as f:
+                    json.dump(presets, f, indent=2)
+                idx = self.presetDropdown.currentIndex()
+                self.presetDropdown.removeItem(idx)
+                QtWidgets.QMessageBox.information(self, "Deleted", f"Preset '{name}' deleted")
+        except Exception as e:
+            cmds.warning(f"Cannot delete preset: {e}")
+
+    def load_user_presets(self):
+        if os.path.exists(PRESET_FILE):
+            try:
+                with open(PRESET_FILE, 'r') as f:
+                    presets = json.load(f)
+                for k in presets:
+                    if k not in self.default_presets:
+                        self.presetDropdown.addItem(k)
+            except Exception:
+                pass
 
 
 def run():
     global ui
     try:
         ui.close()
-    except:
+    except Exception:
         pass
-
     ptr = wrapInstance(int(omui.MQtUtil.mainWindow()), QtWidgets.QWidget)
     ui = CameraPresetDialog(parent=ptr)
     ui.show()
